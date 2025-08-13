@@ -1,5 +1,5 @@
 from fastapi import WebSocket,APIRouter,WebSocketDisconnect
-from app.manage.connection_manager import ConnectionManager
+from app.manage.connection_manager import AdvancedConnectionManager
 from app.authentication import current_user
 from app.dependencies import get_db,SessionLocal,SessionDep
 from typing import Dict,List
@@ -11,22 +11,22 @@ from app.schemas.dm_messages_schemas import DmMessageDisplay
 
 
 
-dm_router = APIRouter(prefix='/messages',tags=['messages'])
-manager = ConnectionManager()
+messages_router = APIRouter(prefix='/messages',tags=['messages'])
+manager = AdvancedConnectionManager()
 
-@dm_router.websocket("/ws")
+@messages_router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     token = websocket.query_params.get("token")
     user = current_user(token,next(get_db()))
 
-
     await manager.connect(user.id,websocket)
     try:
+
         while True:
             data = await websocket.receive_json()
             message = data["message"]
-            print(message)
-            receiver_id = data["receiver_id"]
+    
+            receiver_id = int(data["receiver_id"])
             db = SessionLocal()
     
             msg = DmMessage(  #create the message instance
@@ -41,7 +41,7 @@ async def websocket_endpoint(websocket: WebSocket):
         manager.disconnect(user.id)
 
 
-@dm_router.get("/history/{receiver_id}/",response_model=List[DmMessageDisplay])
+@messages_router.get("/history/dm/{receiver_id}/",response_model=List[DmMessageDisplay])
 def get_chat_history(receiver_id: int, db: SessionDep,token:Annotated[str,Depends(oauth2_scheme)]):
     user = current_user(token,next(get_db()))
     messages = db.query(DmMessage).filter(
@@ -50,3 +50,6 @@ def get_chat_history(receiver_id: int, db: SessionDep,token:Annotated[str,Depend
     ).order_by(DmMessage.timestamp).all()
 
     return messages
+
+
+

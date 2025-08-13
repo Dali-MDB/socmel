@@ -3,7 +3,7 @@ from sqlalchemy import Column, Integer, String, Boolean
 from sqlalchemy.orm import relationship
 from app.database import Base
 from app.models.follows import Follow,FollowRequest
-from app.models.messages import DmMessage, RoomMessage
+from app.models.messages import DmMessage, RoomMessage,group_chat_members
 
 
 class User(Base):
@@ -45,7 +45,9 @@ class User(Base):
     )
 
     reactions = relationship("Reaction",back_populates="user")
-
+    group_chats = relationship("GroupChat",secondary=group_chat_members,back_populates="members")
+    owned_group_chats = relationship("GroupChat",back_populates="owner")
+    group_chat_messages_sent = relationship("GroupChatMessage",back_populates="sender",foreign_keys="[GroupChatMessage.sender_id]")
 
     def __repr__(self):
         return f'user: {self.email}'

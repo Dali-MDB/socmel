@@ -8,8 +8,8 @@ from app.manage.spaces_manage import spaces_router
 from app.manage.users_manage import users_router
 from app.manage.security_manage import sec_auth
 from app.manage.follows_manage import follow_router
-from app.manage.direct_messaging import dm_router
-
+from app.manage.direct_messaging import messages_router
+from app.manage.groups_manage import groups_router
 
 @asynccontextmanager
 async def lifespan(app:FastAPI):
@@ -24,7 +24,8 @@ app.include_router(spaces_router)
 app.include_router(users_router)
 app.include_router(sec_auth)
 app.include_router(follow_router)
-app.include_router(dm_router)
+app.include_router(messages_router)
+app.include_router(groups_router)
 
 '''
 
