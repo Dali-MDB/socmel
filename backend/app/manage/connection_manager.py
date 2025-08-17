@@ -1,5 +1,8 @@
 from fastapi import WebSocket
 from typing import Dict
+from datetime import datetime
+
+
 
 class ConnectionManager:
     def __init__(self) -> None:
@@ -31,6 +34,8 @@ class AdvancedConnectionManager:
         
         # Store user's groups: user_id -> set of group_ids (for quick lookup)
         self.user_groups: Dict[int, Set[int]] = {}
+
+
     
     async def connect(self, user_id: int, websocket: WebSocket, user_groups: List[int] = None):
         """
@@ -51,6 +56,8 @@ class AdvancedConnectionManager:
                 if group_id not in self.group_members:
                     self.group_members[group_id] = set()
                 self.group_members[group_id].add(user_id)
+
+
     
     async def disconnect(self, user_id: int):
         """Disconnect user and remove from all groups"""
@@ -67,18 +74,20 @@ class AdvancedConnectionManager:
                         del self.group_members[group_id]
             del self.user_groups[user_id]
     
-    async def send_direct_message(self, message: str, receiver_id: int):
+    async def send_direct_message(self, message: str,sender_id:int, receiver_id: int, msg: None):
         """Send a direct message to a specific user"""
         if receiver_id in self.active_connections:
             websocket = self.active_connections[receiver_id]
             try:
-                await websocket.send_text(message)
+                msg = msg.model_dump()
+                msg['timestamp'] = msg['timestamp'].isoformat()
+                await websocket.send_json(msg)
             except:
                 # Connection might be broken, clean up
                 await self.disconnect(receiver_id)
                 
 
-    async def send_group_message(self, message: str, group_id: int, sender_id: Optional[int] = None):
+    async def send_group_message(self, message: str, group_id: int, sender_id: Optional[int] = None,msg=None):
         """
         Send a message to all members of a group
         
@@ -90,15 +99,19 @@ class AdvancedConnectionManager:
         if group_id not in self.group_members:
             return 
         
+        msg = msg.model_dump()
+        msg['timestamp'] = msg['timestamp'].isoformat()
         for user_id in self.group_members[group_id].copy():  # Copy to avoid modification during iteration
             # Skip sender if specified
             if sender_id and user_id == sender_id:
                 continue
                 
             if user_id in self.active_connections:
+                
                 try:
+    
                     websocket = self.active_connections[user_id]
-                    await websocket.send_text(message)
+                    await websocket.send_json(data=msg)
                 except:
                     # Connection broken, clean up
                     await self.disconnect(user_id)

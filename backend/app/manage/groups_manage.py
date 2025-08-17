@@ -94,10 +94,11 @@ async def remove_member(group_id:int,user_id:int,db:SessionDep,token:Annotated[s
     member = db.query(User).filter(User.id==user_id).first()
     if not member:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail='the user you are looking for does not exist')
-    if member.id in group.members_ids:
-        group.members.remove(member)
     if member.id == user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail='you can not remove yourself from the group')
+    if member.id in group.members_ids:
+        group.members.remove(member)
+    
     db.commit()
     db.refresh(group)
     return group.members
@@ -128,6 +129,8 @@ async def pass_ownership(group_id:int,user_id:int,db:SessionDep,token:Annotated[
     member = db.query(User).filter(User.id==user_id).first()
     if not member:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail='the user you are looking for does not exist')
+    if not member.id in group.members_ids:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail='this user is not a member of this group')
     group.owner_id = member.id
     db.commit()
     db.refresh(group)
