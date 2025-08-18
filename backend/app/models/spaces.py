@@ -28,6 +28,10 @@ class Space(Base):
         self.members.remove(user)
         self.members_nbr -= 1
 
+    @property
+    def members_ids(self):
+        return [m.id for m in self.members]
+
     def __repr__(self):
         return f'space: {self.name} - {self.founded_on}'
     

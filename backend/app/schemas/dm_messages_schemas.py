@@ -25,3 +25,15 @@ class GroupMesssageDisplay(BaseModel):
     class Config:
         from_attributes = True
    
+
+class RoomMessageDisplay(BaseModel):
+    id : int
+    content : str
+    sender_id : int
+    space_id : int
+    room_id : int
+    timestamp : datetime
+    parent_message_id : Optional[int] = None
+
+    class Config:
+        from_attributes = True

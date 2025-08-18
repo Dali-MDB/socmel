@@ -42,7 +42,9 @@ class RoomMessage(Base):
     replies = relationship("RoomMessage",back_populates='parent_message')
     room = relationship("Room", foreign_keys=[room_id], back_populates="messages")
 
-
+    @property
+    def space_id(self):
+        return self.room.space_id
     def __repr__(self):
         return f'dm: ({self.sender}) -> ({self.recipient})'
 #association table for group chat

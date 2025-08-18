@@ -9,6 +9,7 @@ from fastapi.exceptions import HTTPException
 from fastapi import status
 from app.models.users import User
 from app.schemas.users_schemas import UserDisplay
+from app.manage.connection_manager import manager
 
 
 groups_router = APIRouter(prefix='/groups',tags=['groups'])
@@ -33,6 +34,8 @@ async def create_group(group:GroupChatCreate,token:Annotated[str,Depends(oauth2_
     db.add(group_db)
     db.commit()
     db.refresh(group_db)
+
+    manager.add_user_to_group(user.id,group_db.id)   #add the user to the group in websockets
     
     return group_db
 
@@ -80,6 +83,9 @@ async def add_member(group_id:int,user_id:int,db:SessionDep,token:Annotated[str,
         group.members.append(member)
     db.commit()
     db.refresh(group)
+
+    manager.add_user_to_group(member.id,group.id)   #add the user to the group in websockets
+
     return group.members
 
 
@@ -101,6 +107,8 @@ async def remove_member(group_id:int,user_id:int,db:SessionDep,token:Annotated[s
     
     db.commit()
     db.refresh(group)
+
+    manager.remove_user_from_group(member.id, group.id)    #remove the user from the group membersin webscokets
     return group.members
 
 
@@ -116,6 +124,7 @@ async def leave_group(group_id:int,db:SessionDep,token:Annotated[str,Depends(oau
     group.members.remove(user)
     db.commit()
     db.refresh(group)
+    manager.remove_user_from_group(user.id, group.id)    #remove the user from the group membersin webscokets
     return group.members
 
 

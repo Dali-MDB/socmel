@@ -7,16 +7,19 @@ from app.models.messages import DmMessage,GroupChat,GroupChatMessage
 from fastapi import Depends
 from app.authentication import oauth2_scheme
 from typing import Annotated
-from app.schemas.dm_messages_schemas import DmMessageDisplay,GroupMesssageDisplay
+from app.schemas.dm_messages_schemas import DmMessageDisplay,GroupMesssageDisplay,RoomMessageDisplay
 from app.manage.groups_manage import fetch_group
+from app.manage.spaces_manage import fetch_room,fetch_space
 from fastapi.exceptions import HTTPException
-from app.schemas.dm_messages_schemas import GroupMesssageDisplay
+from app.models.messages import RoomMessage
+from app.manage.connection_manager import manager
+
 
 
 
 
 messages_router = APIRouter(prefix='/messages',tags=['messages'])
-manager = AdvancedConnectionManager()
+
 
 @messages_router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket,token:str):
@@ -91,4 +94,18 @@ def get_group_chat_history(group_id:int,db: SessionDep,token:Annotated[str,Depen
     messages = db.query(GroupChatMessage).filter(GroupChatMessage.group_chat_id == group_id).order_by(GroupChatMessage.timestamp).all()
     
     return messages
+
+
+@messages_router.get('/history/space/{space_id}/room/{room_id}/',response_model=List[RoomMessageDisplay])
+def get_room_chat_history(space_id:int,room_id:int,db: SessionDep,token:Annotated[str,Depends(oauth2_scheme)]):
+    user = current_user(token,next(get_db()))
+    space = fetch_space(space_id,db)
+    room = fetch_room(room_id,space_id,db)
+    if not user.id in space.members_ids:
+        raise HTTPException(status_code=403,detail='you are not a member of this space')
+    messages = db.query(RoomMessage).filter(RoomMessage.room_id == room_id).order_by(RoomMessage.timestamp).all()
+    
+    return messages
+
+
 

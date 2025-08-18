@@ -32,12 +32,18 @@ class AdvancedConnectionManager:
         # Store group memberships: group_id -> set of user_ids
         self.group_members: Dict[int, Set[int]] = {}
         
-        # Store user's groups: user_id -> set of group_ids (for quick lookup)
+        # Store user's groups: user_id -> set of group_ids 
         self.user_groups: Dict[int, Set[int]] = {}
+
+        #Store space memberships: space_id -> set of user_ids
+        self.space_members : Dict[int, Set[int]] = {}
+
+        # Store user's spaces: user_id -> set of server_ids 
+        self.user_spaces: Dict[int, Set[int]] = {}
 
 
     
-    async def connect(self, user_id: int, websocket: WebSocket, user_groups: List[int] = None):
+    async def connect(self, user_id: int, websocket: WebSocket, user_groups: List[int] = None, user_spaces: List[int] = None):
         """
         Connect a user and register them to their groups
         
@@ -57,6 +63,13 @@ class AdvancedConnectionManager:
                     self.group_members[group_id] = set()
                 self.group_members[group_id].add(user_id)
 
+        if user_spaces:
+            self.user_spaces[user_id] = set(user_spaces)
+            for space_id in user_spaces:
+                if space_id not in self.space_members:
+                    self.space_members[space_id] = set()
+                self.space_members[space_id].add(user_id)
+
 
     
     async def disconnect(self, user_id: int):
@@ -73,6 +86,16 @@ class AdvancedConnectionManager:
                     if not self.group_members[group_id]:
                         del self.group_members[group_id]
             del self.user_groups[user_id]
+
+        # Remove from all spaces
+        if user_id in self.user_spaces:
+            for space_id in self.user_spaces[user_id]:
+                if space_id in self.space_members:
+                    self.space_members[space_id].discard(user_id)
+                    # Clean up empty groups
+                    if not self.space_members[space_id]:
+                        del self.space_members[space_id]
+            del self.user_spaces[user_id]
     
     async def send_direct_message(self, message: str,sender_id:int, receiver_id: int, msg: None):
         """Send a direct message to a specific user"""
@@ -115,7 +138,35 @@ class AdvancedConnectionManager:
                 except:
                     # Connection broken, clean up
                     await self.disconnect(user_id)
+
+    async def send_room_message(self, message: str, space_id: int, sender_id: Optional[int] = None,msg=None):
+        """
+        Send a message to all members of a room
         
+        Args:
+            message: The message to send
+            group_id: The group ID
+            sender_id: ID of the sender (optional, to exclude from receiving the message)
+        """
+        if space_id not in self.space_members:
+            return 
+        
+        msg = msg.model_dump()
+        msg['timestamp'] = msg['timestamp'].isoformat()
+        for user_id in self.space_members[space_id].copy():  # Copy to avoid modification during iteration
+            # Skip sender if specified
+            if sender_id and user_id == sender_id:
+                continue
+                
+            if user_id in self.active_connections:
+                
+                try:
+                    websocket = self.active_connections[user_id]
+                    await websocket.send_json(data=msg)
+                except:
+                    # Connection broken, clean up
+                    await self.disconnect(user_id)
+
        
     
     def add_user_to_group(self, user_id: int, group_id: int):
@@ -157,3 +208,47 @@ class AdvancedConnectionManager:
         return [user_id for user_id in self.group_members[group_id] 
                 if user_id in self.active_connections]
 
+    def add_user_to_space(self, user_id: int, space_id: int):
+        """Add a user to a space (call this when user joins a new space)"""
+        if space_id not in self.space_members:
+            self.space_members[space_id] = set()
+        
+        if user_id not in self.user_spaces:
+            self.user_spaces[user_id] = set()
+        
+        self.space_members[space_id].add(user_id)
+        self.user_spaces[user_id].add(space_id)
+
+    def remove_user_from_space(self, user_id: int, space_id: int):
+        """Remove a user from a space"""
+        if space_id in self.space_members:
+            self.space_members[space_id].discard(user_id)
+            if not self.space_members[space_id]:   #clear if empty
+                del self.space_members[space_id]
+        
+        if user_id in self.user_spaces:
+            self.user_spaces[user_id].discard(space_id)
+            if not self.user_spaces[user_id]:     #clear if empty
+                del self.user_spaces[user_id]
+
+    
+    def get_space_members(self, space_id: int) -> List[int]:
+        """Get all members of a space"""
+        return list(self.space_members.get(space_id, set()))
+    
+    def get_user_spaces(self, user_id: int) -> List[int]:
+        """Get all spaces a user belongs to"""
+        return list(self.user_spaces.get(user_id, set()))
+    
+    def get_active_users_in_space(self, space_id: int) -> List[int]:
+        """Get only the currently connected users in a space"""
+        if space_id not in self.space_members:
+            return []
+        
+        return [user_id for user_id in self.space_members[space_id] 
+                if user_id in self.active_connections]
+    
+
+
+
+manager = AdvancedConnectionManager()

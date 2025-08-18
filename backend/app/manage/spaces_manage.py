@@ -10,7 +10,7 @@ from typing import Annotated
 from fastapi import Depends,HTTPException,status,Body
 from datetime import datetime
 from app.schemas.users_schemas import UserDisplay
-
+from app.manage.connection_manager import manager
 
 spaces_router = APIRouter(prefix='/spaces',tags=['spaces'])
 
@@ -38,6 +38,7 @@ async def create_space(space:SpaceCreate,token:Annotated[str,Depends(oauth2_sche
     #add the owner to the space
     space.members.append(user)
     db.commit()
+    manager.add_user_to_space(user.id,space.id)
     return space
 
 
@@ -76,6 +77,8 @@ async def delete_space(space_id:int,token:Annotated[str,Depends(oauth2_scheme)],
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail="You are not the owner of this space")
     db.delete(space)
     db.commit()
+
+    
     return {"message": "Space deleted"}
 
 
@@ -187,6 +190,7 @@ async def join_space(space_id:int,invitation_token:str,token:Annotated[str,Depen
     #add the user to the space
     space.add_member(user)
     db.commit()
+    manager.add_user_to_space(user.id, space.id)
     return {"message": "You have joined the space"}
 
 
@@ -210,6 +214,7 @@ async def remove_member(space_id:int,user_id:int,token:Annotated[str,Depends(oau
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="Member not found")
     space.remove_member(member)
     db.commit()
+    manager.remove_user_from_space(member.id, space.id)
     return {"message": "Member removed"}
 
 
