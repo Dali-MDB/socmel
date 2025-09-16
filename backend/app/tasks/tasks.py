@@ -8,23 +8,6 @@ from app.models.notes import Note
 
 scheduler = BackgroundScheduler()
 
-# def scheduled_task():
-#     print(f"⏰ Task executed at {time.strftime('%X')}")
-
-
-# def task2():
-#     print(f"putain zebi")
-
-# def task3():
-#     print(f"putunfrtggg zebi")
-
-
-# from datetime import datetime,timedelta
-# scheduler.add_job(scheduled_task,"interval",minutes=1)
-# scheduler.add_job(task2,'cron',hour=22,minute=56)
-# run_time = datetime.now() + timedelta(seconds=30)
-# scheduler.add_job(task3, "date", run_date=run_time)
-
 
 
 def clean_notes(db:SessionDep):
