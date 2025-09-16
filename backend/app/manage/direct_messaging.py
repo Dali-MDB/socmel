@@ -3,7 +3,7 @@ from app.manage.connection_manager import AdvancedConnectionManager
 from app.authentication import current_user
 from app.dependencies import get_db,SessionLocal,SessionDep
 from typing import Dict,List
-from app.models.messages import DmMessage,GroupChat,GroupChatMessage
+from app.models.messages import DmMessage,GroupChat,GroupChatMessage,RoomMessage
 from fastapi import Depends
 from app.authentication import oauth2_scheme
 from typing import Annotated
@@ -71,6 +71,31 @@ async def websocket_endpoint(websocket: WebSocket,token:str):
                 msg = GroupMesssageDisplay.model_validate(msg)
                 
                 await manager.send_group_message(message,group_id,user.id,msg)
+
+            elif data.get('type') and data['type'] == 'space':
+                message = data["message"]
+
+                space_id = int(data["space_id"])
+                room_id = int(data["room_id"])
+                parent_id = data.get('parent_id',None) 
+                parent_id = int(parent_id) if parent_id else None
+                db = SessionLocal()
+               
+
+                msg = RoomMessage(
+                    content = message,
+                    sender_id = user.id,
+                    room_id = room_id,
+                    parent_message_id = parent_id
+                )
+                db.add(msg)
+                db.commit()
+            
+                msg = RoomMessageDisplay.model_validate(msg)
+                
+                await manager.send_room_message(message,space_id,user.id,msg)
+
+            
     except WebSocketDisconnect:
         manager.disconnect(user.id)
 

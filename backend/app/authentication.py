@@ -12,14 +12,19 @@ from app.schemas.users_schemas import UserCreate,UserDisplay
 from app.dependencies import SessionDep
 from typing import Annotated
 from fastapi.security import OAuth2PasswordRequestForm
+import dotenv
+import os
+
+dotenv.load_dotenv()
 
 
-SECRET_KEY = 'n4f44r7232jxe23m23rc4r84e?9391!181669344cnfr44rh34ur23r'
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRES_MINUTES = 30
+SECRET_KEY = os.getenv('SECRET_KEY')
+ALGORITHM = os.getenv('ALGORITHM')
+ACCESS_TOKEN_EXPIRES_MINUTES = os.getenv('ACCESS_TOKEN_EXPIRES_MINUTES')
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl='auth/login/')
+oauth2_scheme_silent = OAuth2PasswordBearer(tokenUrl='auth/login/',auto_error=False)
 pwd_context = CryptContext(schemes=['bcrypt'],deprecated='auto')
 
 
@@ -113,9 +118,38 @@ def current_user(token:Annotated[str,oauth2_scheme],db:Session):
 
 
 @auth_router.get('/current_user/',response_model=UserDisplay)
-async def get_current_user(token:Annotated[str,Depends(oauth2_scheme)],db:SessionDep):
+async def get_current_user(db:SessionDep,token:Annotated[str|None,Depends(oauth2_scheme)]=None):
     return  current_user(token,db)
     
+from typing import Optional
+
+def current_user2(
+    token: Annotated[Optional[str], Depends(oauth2_scheme_silent)], 
+    db: SessionDep
+) -> Optional[User]:
+    if not token:   # No token provided
+        print("zbu")
+        return None
+    
+    print("Got token:", token)  
+
+    payload = verify_token(token)
+    if not payload:
+        return None  # instead of raising
+
+    email = payload.get("sub")
+    if not email:
+        return None
+
+    user = db.query(User).filter(User.email == email).first()
+    return user
+
+
+@auth_router.get("/currentuser/", response_model=UserDisplay)
+async def read_current_user(
+    user: Annotated[User, Depends(current_user2)]
+):
+    return user
 
 
 @auth_router.post('/pass/')

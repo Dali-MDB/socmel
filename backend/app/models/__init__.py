@@ -3,3 +3,4 @@ from .spaces import *
 from .users import *
 from .follows import *
 from .messages import *
+from .notes import *

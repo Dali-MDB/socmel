@@ -49,6 +49,8 @@ class User(Base):
     owned_group_chats = relationship("GroupChat",back_populates="owner")
     group_chat_messages_sent = relationship("GroupChatMessage",back_populates="sender",foreign_keys="[GroupChatMessage.sender_id]")
 
+    note = relationship("Note",back_populates="user",uselist=False)
+
     def __repr__(self):
         return f'user: {self.email}'
 
