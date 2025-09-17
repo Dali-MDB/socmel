@@ -1,2 +1,24 @@
+
+
+#venv
 soc/
+
+
+
+#db (development)
 socmel.db/
+
+
+# Environment files
+*.env
+
+
+# Alembic
+alembic.ini
+
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
