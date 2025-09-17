@@ -1,14 +1,15 @@
 from fastapi import Depends,APIRouter, Body
 from app.dependencies import SessionDep,Session
-from app.models.posts import Post,Like,Comment,Reaction
+from app.models.posts import Post,Like,Comment,Reaction,PostAttachment
 from app.schemas.comments_schemas import CommentDisplay
 from app.models.users import User
 from app.schemas.posts_schemas import PostCreate,PostDisplay,PostUpdate
 from app.authentication import oauth2_scheme,current_user
 from typing import Annotated
 from fastapi.exceptions import HTTPException
-from fastapi import status,Response
+from fastapi import status,Response, UploadFile
 from app.manage.spaces_manage import fetch_space
+import cloudinary.uploader
 
 posts_router = APIRouter(prefix='/posts',tags=['posts'])
 
@@ -227,3 +228,51 @@ async def get_user_posts_in_space(space_id: int, user_id: int, token: Annotated[
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     posts = db.query(Post).filter(Post.space_id == space_id, Post.user_id == user_id, Post.for_space == True).all()
     return posts
+
+
+
+@posts_router.post('/{post_id}/img/',response_model=PostDisplay)
+async def upload_images(images:list[UploadFile],post_id:int, token: Annotated[str, Depends(oauth2_scheme)], db: SessionDep):
+    user = current_user(token,db)
+    post = fetch_post(post_id,db)
+    if user.id != post.user_id:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED,'you are not allowed to upload an image to a post you do not own')
+    
+
+    for f in images:
+        
+        upload_result = cloudinary.uploader.upload(
+            f.file,
+            folder="socmel/posts_attacments",
+            public_id=f"post_{post.id}_attachment",
+            overwrite=True
+        )
+
+        attachment = PostAttachment(
+            post_id = post_id,
+            file = upload_result.get("secure_url"),
+            file_public_id = upload_result.get("public_id")
+        )
+   
+    db.commit()
+    db.refresh(post)
+    return post
+
+
+
+@posts_router.delete('/{post_id}/img/{attachment_id}/',status_code=status.HTTP_200_OK)
+async def delete_image(post_id:int,attachment_id:int,token:Annotated[str,Depends(oauth2_scheme)],db:SessionDep):
+    user = current_user(token,db)
+    post = fetch_post(post_id,db)
+    #check ownership
+    if user.id != post.user_id:
+        raise HTTPException(status_code=401,detail='you are not allowed to delete this attachment')
+    attachment = db.query(PostAttachment).filter(PostAttachment.id==attachment_id,PostAttachment.post_id==post_id).first()
+    if not attachment:
+        raise HTTPException(status_code=404,detail='this attachment does not exist')
+    cloudinary.uploader.destroy(attachment.file_public_id)
+    db.delete(attachment)
+    db.commit()
+    return {'detail':'the attachment has been deleted successfully'}
+    
+    

@@ -1,4 +1,5 @@
 from app.models.posts import Post
+from app.schemas.post_attachments_schema import PostAttachmentDisplay
 from pydantic import BaseModel
 from datetime import datetime
 
@@ -17,6 +18,8 @@ class PostDisplay(PostBase):
     likes_nbr : int
     user_id : int
     space_id : int | None 
+    attachments : list[PostAttachmentDisplay] | None
+    
 
 
 class PostUpdate(PostBase):

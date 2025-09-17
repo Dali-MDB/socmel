@@ -21,6 +21,7 @@ class UserDisplay(UserBase):
     is_active : bool
     xp : int
     level : int
+    pfp : str | None = None
 
 
 

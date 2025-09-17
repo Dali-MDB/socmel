@@ -30,7 +30,7 @@ pwd_context = CryptContext(schemes=['bcrypt'],deprecated='auto')
 
 def create_token(data:dict):
     to_encode = data.copy()
-    expire = datetime.now() + timedelta(minutes=ACCESS_TOKEN_EXPIRES_MINUTES)
+    expire = datetime.now() + timedelta(minutes=int(ACCESS_TOKEN_EXPIRES_MINUTES))
     to_encode.update(
         {'exp':expire}
     )

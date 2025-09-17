@@ -19,6 +19,7 @@ class Post(Base):
     likes = relationship("Like",back_populates='post')
     comments = relationship("Comment",back_populates='post')
     space = relationship("Space",back_populates="posts")
+    attachments = relationship("PostAttachment",back_populates='post',cascade="all,delete")   #delete when deleting post
 
 
     def __repr__(self):
@@ -53,7 +54,7 @@ class Comment(Base):
     post = relationship("Post",back_populates='comments')
     parent_comment = relationship("Comment",remote_side = [id],back_populates='sub_comments')
     sub_comments = relationship("Comment",back_populates='parent_comment')
-    reactions = relationship("Reaction",back_populates="comment")
+    reactions = relationship("Reaction",back_populates="comment",cascade="all,delete")   #delete when deleting comment
 
 
 
@@ -67,8 +68,19 @@ class Reaction(Base):
     comment_id = Column(Integer,ForeignKey("comments.id"))
 
     user = relationship("User",back_populates="reactions")
-    comment = relationship("Comment",back_populates="reactions")
+    comment = relationship("Comment",back_populates="reactions",cascade="all,delete")   #delete when deleting comment
 
+
+
+class PostAttachment(Base):
+    __tablename__ = "post_attachments"
+
+    id = Column(Integer,primary_key=True, index=True)
+    file = Column(Text,nullable=False)
+    file_public_id = Column(Text,nullable=False)
+    post_id = Column(Integer,ForeignKey('posts.id'))
+
+    post = relationship(Post,back_populates='attachments')
 
     
 

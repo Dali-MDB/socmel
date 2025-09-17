@@ -1,5 +1,5 @@
 from fastapi import Depends
-from sqlalchemy import Column, Integer, String, Boolean
+from sqlalchemy import Column, Integer, String, Boolean,URL,Text
 from sqlalchemy.orm import relationship
 from app.database import Base
 from app.models.follows import Follow,FollowRequest
@@ -16,6 +16,8 @@ class User(Base):
     is_active = Column(Boolean, default=True) 
     xp = Column(Integer, default=0)
     level = Column(Integer, default=1)
+    pfp = Column(String(255),nullable=True)
+    pfp_public_id = Column(Text,nullable=True)
 
     posts = relationship("Post",back_populates='user')
     likes = relationship("Like",back_populates='user')

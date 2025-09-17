@@ -15,6 +15,8 @@ class DmMessage(Base):
     timestamp = Column(DateTime, default=datetime.now())
     is_read = Column(Boolean, default=False)
     parent_message_id = Column(Integer,ForeignKey("dm_messages.id"),nullable=True)
+    attachment = Column(String(255),nullable=True)
+    attachment_public_id = Column(String(255),nullable=True)
     
     sender = relationship("User", foreign_keys=[sender_id], back_populates="messages_sent")
     recipient = relationship("User", foreign_keys=[recipient_id], back_populates="messages_received")
@@ -36,7 +38,8 @@ class RoomMessage(Base):
     room_id = Column(Integer, ForeignKey("rooms.id"))
     timestamp = Column(DateTime, default=datetime.now())
     parent_message_id = Column(Integer,ForeignKey("room_messages.id"),nullable=True)
-    
+    attachment = Column(String(255),nullable=True)
+    attachment_public_id = Column(String(255),nullable=True)
     sender = relationship("User", foreign_keys=[sender_id], back_populates="room_messages_sent")
     parent_message = relationship("RoomMessage",remote_side=[id],back_populates="replies")
     replies = relationship("RoomMessage",back_populates='parent_message')
@@ -84,8 +87,12 @@ class GroupChatMessage(Base):
     group_chat_id = Column(Integer,ForeignKey('group_chat.id'))
     timestamp = Column(DateTime,default=datetime.now())
     parent_message_id = Column(Integer,ForeignKey("group_chat_messages.id"),nullable=True)
-
+    attachment = Column(String(255),nullable=True)
+    attachment_public_id = Column(String(255),nullable=True)
     sender = relationship("User",foreign_keys=[sender_id],back_populates="group_chat_messages_sent")
     group_chat = relationship("GroupChat",back_populates="messages")
     parent_message = relationship("GroupChatMessage",remote_side=[id],back_populates="replies")
     replies = relationship("GroupChatMessage",back_populates='parent_message')
+
+
+

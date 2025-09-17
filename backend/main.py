@@ -19,9 +19,24 @@ from slowapi.errors import RateLimitExceeded
 from slowapi import Limiter,_rate_limit_exceeded_handler
 from slowapi.middleware import SlowAPIMiddleware
 
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
+
+import os
+import dotenv
+
+dotenv.load_dotenv()
+
+cloudinary.config(
+    cloud_name=os.getenv('CLOUD_NAME'),
+    api_key=os.getenv('API_KEY'),
+    api_secret=os.getenv('API_SECRET')
+)
+
 @asynccontextmanager
 async def lifespan(app:FastAPI):
-    # models.Base.metadata.create_all(bind=engine)
+    models.Base.metadata.create_all(bind=engine)
     scheduler.start()
     print("scheduler started")
     yield
@@ -53,6 +68,8 @@ app.state.limiter = limiter
 
 app.add_middleware(SlowAPIMiddleware)
 app.add_exception_handler(RateLimitExceeded,_rate_limit_exceeded_handler)
+
+
 
 
 
