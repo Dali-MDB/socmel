@@ -36,7 +36,7 @@ cloudinary.config(
 
 @asynccontextmanager
 async def lifespan(app:FastAPI):
-    models.Base.metadata.create_all(bind=engine)
+ #   models.Base.metadata.create_all(bind=engine)
     scheduler.start()
     print("scheduler started")
     yield

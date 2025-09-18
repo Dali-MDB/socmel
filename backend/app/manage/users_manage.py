@@ -9,6 +9,7 @@ from app.dependencies import SessionDep
 from fastapi import UploadFile
 import cloudinary.uploader
 
+
 users_router = APIRouter(prefix='/users',tags=['users'])
 
 
@@ -93,3 +94,6 @@ async def remove_pfp(token:Annotated[str,Depends(oauth2_scheme)],db:SessionDep):
     db.commit()
     db.refresh(user)
     return user
+
+
+

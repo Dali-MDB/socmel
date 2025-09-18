@@ -15,7 +15,7 @@ class Follow(Base):
     followed = relationship("User",back_populates="followers",foreign_keys=[followed_id])
 
     __table_args__ = (
-        UniqueConstraint('follower_id', 'followed_id', name='unique_follow'),
+        UniqueConstraint('follower_id', 'followed_id', name='unique_follow_relationship'),
     )
 
     def __repr__(self):
@@ -33,7 +33,7 @@ class FollowRequest(Base):
     to_user = relationship("User",back_populates="follow_requests_received",foreign_keys=[to_user_id])
 
     __table_args__ = (
-        UniqueConstraint('from_user_id', 'to_user_id', name='unique_follow'),
+        UniqueConstraint('from_user_id', 'to_user_id', name='unique_follow_request'),
     )
 
 

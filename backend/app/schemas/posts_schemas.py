@@ -6,6 +6,7 @@ from datetime import datetime
 class PostBase(BaseModel):
     title : str
     content : str
+    tags : list[str] | None
 
 
 class PostCreate(PostBase):

@@ -14,6 +14,7 @@ class Post(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     space_id = Column(Integer,ForeignKey('spaces.id'),nullable=True)
     for_space = Column(Boolean,default=False)
+    tags = Column(Text,nullable=True)    #tags separated by commas
 
     user = relationship("User", back_populates="posts")
     likes = relationship("Like",back_populates='post')

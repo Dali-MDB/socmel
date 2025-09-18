@@ -1,4 +1,4 @@
-from fastapi import Depends,APIRouter, Body
+from fastapi import Depends,APIRouter, Body, Request
 from app.dependencies import SessionDep,Session
 from app.models.posts import Post,Like,Comment,Reaction,PostAttachment
 from app.schemas.comments_schemas import CommentDisplay
@@ -10,6 +10,12 @@ from fastapi.exceptions import HTTPException
 from fastapi import status,Response, UploadFile
 from app.manage.spaces_manage import fetch_space
 import cloudinary.uploader
+from typing import List
+from fastapi import Request
+from app.models.posts import Post
+from sqlalchemy import or_
+from app.manage.users_manage import fetch_user
+
 
 posts_router = APIRouter(prefix='/posts',tags=['posts'])
 
@@ -28,9 +34,12 @@ async def create_post_account(post:PostUpdate,token:Annotated[str,Depends(oauth2
 
 
 @posts_router.post('/space/{space_id}/create/',response_model=PostDisplay)
-async def create_post_account(space_id:int,post:PostUpdate,token:Annotated[str,Depends(oauth2_scheme)],db:SessionDep):
+async def create_post_space(space_id:int,post:PostUpdate,token:Annotated[str,Depends(oauth2_scheme)],db:SessionDep):
     user = current_user(token,db)
     space = fetch_space(space_id,db)
+    #check if the user is a member of the space
+    if user not in space.members:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail="You are not a member of this space")
     post_data = post.model_dump()
     post_data['user_id'] = user.id
     post_data['space_id'] = space.id
@@ -53,7 +62,7 @@ def has_post_permission(post:Post,user:User):
 
 
 @posts_router.get('/{post_id}/view/',response_model=PostDisplay)
-async def view_post(post_id:int,db:SessionDep):
+async def view_post(post_id:int,db:SessionDep,request:Request):
     post = fetch_post(post_id,db)
     return post
 
@@ -92,6 +101,8 @@ async def delete_post(post_id:int,token:Annotated[str,Depends(oauth2_scheme)],db
 async def like_post(post_id:int,token:Annotated[str,Depends(oauth2_scheme)],db:SessionDep):
     post_db = fetch_post(post_id,db)
     user = current_user(token,db)
+
+    
     
     #check if the user already likes this post
     old_like =  db.query(Like).filter(Like.post_id == post_id,Like.user_id == user.id).first()
@@ -132,6 +143,7 @@ async def add_reply(post_id:int,comment_id:int,reply:str,token:Annotated[str,Dep
     comment_old = db.query(Comment).filter(Comment.id==comment_id).first()
     if not comment_old:
         raise HTTPException(404,detail='this comment does not exist')
+    
     comment_db = Comment(content=reply,user_id=user.id,post_id=post_db.id,parent_id=comment_id)
     db.add(comment_db)
     db.commit()
@@ -170,9 +182,11 @@ async def delete_comment(post_id:int, comment_id:int, token:Annotated[str,Depend
     
         
 @posts_router.get('/{post_id}/comment/all',response_model=list[CommentDisplay])
-async def get_post_comments(post_id:int,db:SessionDep):
+async def get_post_comments(post_id:int,page:int = 1, page_size:int = 10,db:SessionDep,request:Request):
     post = fetch_post(post_id,db)
-    comments = db.query(Comment).filter(Comment.post_id == post_id)
+    
+    user = current_user(request.state.cur_user,db)
+    comments = db.query(Comment).filter(Comment.post_id == post_id).order_by(Comment.created_at.desc()).limit(page_size).offset((page-1)*page_size).all()
     return comments
 
 
@@ -181,6 +195,15 @@ async def get_post_comments(post_id:int,db:SessionDep):
 @posts_router.post('/{post_id}/comment/{comment_id}/react/')
 def react_to_comment(post_id:int,comment_id:int, token:Annotated[str,Depends(oauth2_scheme)], db:SessionDep,reaction_type : str = Body(...)):
     comment = db.query(Comment).filter(Comment.post_id == post_id,Comment.id == comment_id).first()
+    #check if the post is private
+    if comment.post.private:
+        if comment.post.for_space:
+            space = fetch_space(comment.post.space_id,db)
+            if user not in space.members:
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail="You are not a member of this space")
+        else:   #a notmal user post
+            if user not in comment.post.user.followers:
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail="You are not a follower of this user")
     user = current_user(token,db)
     if not comment:
         raise HTTPException(404,'this comment does not exist')
@@ -201,23 +224,23 @@ def react_to_comment(post_id:int,comment_id:int, token:Annotated[str,Depends(oau
     
 # Get posts of a user (not for space)
 @posts_router.get('/user/{user_id}/all/', response_model=list[PostDisplay])
-async def get_user_posts(user_id: int, db: SessionDep):
-    posts = db.query(Post).filter(Post.user_id == user_id, Post.for_space == False).all()
+async def get_user_posts(user_id: int, page:int = 1, page_size:int = 10, db: SessionDep):
+    posts = db.query(Post).filter(Post.user_id == user_id, Post.for_space == False).order_by(Post.created_at.desc()).limit(page_size).offset((page-1)*page_size).all()
     return posts
 
 # Get posts of a space (restrict access to members)
 @posts_router.get('/space/{space_id}/all/', response_model=list[PostDisplay])
-async def get_space_posts(space_id: int, token: Annotated[str, Depends(oauth2_scheme)], db: SessionDep):
+async def get_space_posts(space_id: int, page:int = 1, page_size:int = 10, token: Annotated[str, Depends(oauth2_scheme)], db: SessionDep):
     user = current_user(token, db)
     space = fetch_space(space_id, db)
     if user not in space.members:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not a member of this space")
-    posts = db.query(Post).filter(Post.space_id == space_id, Post.for_space == True).all()
+    posts = db.query(Post).filter(Post.space_id == space_id, Post.for_space == True).order_by(Post.created_at.desc()).limit(page_size).offset((page-1)*page_size).all()
     return posts
 
 # Get posts of a user in a space (restrict access to members)
 @posts_router.get('/space/{space_id}/user/{user_id}/all/', response_model=list[PostDisplay])
-async def get_user_posts_in_space(space_id: int, user_id: int, token: Annotated[str, Depends(oauth2_scheme)], db: SessionDep):
+async def get_user_posts_in_space(space_id: int, user_id:int, page:int = 1, page_size:int = 10, token: Annotated[str, Depends(oauth2_scheme)], db: SessionDep):
     user = current_user(token, db)
     space = fetch_space(space_id, db)
     if user not in space.members:
@@ -226,7 +249,7 @@ async def get_user_posts_in_space(space_id: int, user_id: int, token: Annotated[
     owner = db.query(User).filter(User.id == user_id).first()
     if not owner:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-    posts = db.query(Post).filter(Post.space_id == space_id, Post.user_id == user_id, Post.for_space == True).all()
+    posts = db.query(Post).filter(Post.space_id == space_id, Post.user_id == user_id, Post.for_space == True).order_by(Post.created_at.desc()).limit(page_size).offset((page-1)*page_size).all()
     return posts
 
 
@@ -276,3 +299,23 @@ async def delete_image(post_id:int,attachment_id:int,token:Annotated[str,Depends
     return {'detail':'the attachment has been deleted successfully'}
     
     
+
+    #the user's feed
+@posts_router.get('/feed/',response_model=List[PostDisplay],status_code=status.HTTP_200_OK)
+async def get_feed(request:Request,db:SessionDep,page:int = 1,page_size:int = 10):
+    #we offer different feeds for auth or not auth users
+    if not request.state.is_authenticated and not request.state.cur_user:
+        #for not auth users, we offer a feed of posts from all users
+        posts = db.query(Post).order_by(Post.created_at.desc()).limit(page_size).offset((page-1)*page_size).all()
+        return posts
+    else:
+        #we get posts from the users they follow and spaces they are in
+        user = fetch_user(request.state.cur_user,db)
+        posts = db.query(Post).filter(
+            or_(
+                Post.user_id.in_(user.following), #posts from the users they follow
+                Post.space_id.in_(user.spaces) #posts from the spaces they are in
+            )
+        ).order_by(Post.created_at.desc()).limit(page_size).offset((page-1)*page_size).all()
+        return posts
+
